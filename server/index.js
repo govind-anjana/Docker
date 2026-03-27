@@ -2,7 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import authRoutes from './routes/auth.js';
+import authRoutes from "./routes/auth.js";
 
 dotenv.config();
 
@@ -15,15 +15,14 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use("/api/auth", authRoutes);
 
 const connectDB = async () => {
   try {
     await mongoose.connect(MONGO_URL);
-    console.log(MONGO_URL)
     console.log("MongoDB Connected ✅");
   } catch (err) {
-    console.log("MongoDB error, retrying...");
+    console.log("MongoDB error, retrying...", err);
     setTimeout(connectDB, 5000);
   }
 };

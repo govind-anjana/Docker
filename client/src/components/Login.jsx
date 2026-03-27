@@ -16,7 +16,7 @@ function Login({ onSwitchToSignup, onLoginSuccess }) {
     setError('');
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.DEPLOY_API_URL;
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
