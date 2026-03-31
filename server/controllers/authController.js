@@ -70,14 +70,13 @@ export const login = async (req, res) => {
     res.status(200).json({
       message: "Login successful",
       token,
-      user: { id: user._id, email: user.email },
+      user: { user },
     });
   } catch (error) {
     console.error("Error in login:", error);
     res.status(500).json({ message: "Server error during login" });
   }
 };
-
 export const allUser = async (req, res) => {
   try {
     const users = await User.find({}, { password: 0 }); // Exclude password from results
