@@ -2,53 +2,108 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { sendOTPEmail } from "../utils/sendEmail.js";
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
 
 // Email regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit OTP
+};
+
 export const signup = async (req, res) => {
   try {
     const { username, email, number, password } = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
+
+    if (existingUser && existingUser.isVerified) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Hash the password
+    const otp = generateOTP();
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create the user
-    const newUser = new User({
-      username,
-      email,
-      number,
-      password: hashedPassword,
+    let user;
+
+    if (existingUser) {
+      // Update existing unverified user
+      user = existingUser;
+      user.username = username;
+      user.password = hashedPassword;
+      user.number = number;
+    } else {
+      user = new User({
+        username,
+        email,
+        number,
+        password: hashedPassword,
+        provider: "local",
+      });
+    }
+
+    user.otp = otp;
+    user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 min
+    user.isVerified = false;
+
+    await user.save();
+
+    // Send email before responding to client
+    await sendOTPEmail(email, otp);
+
+    res.status(200).json({
+      message: "OTP sent successfully",
+      otp: otp // Keep for debugging if user depends on it
     });
 
-    await newUser.save();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Signup error" });
+  }
+};
+export const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
 
-    // Generate JWT token
-    const token = jwt.sign({ id: newUser._id }, JWT_SECRET, {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    if (user.otp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (user.otpExpires < Date.now()) {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpires = null;
+
+    await user.save();
+
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, {
       expiresIn: "1d",
     });
 
-    res.status(201).json({
-      message: "User registered successfully",
+    res.status(200).json({
+      message: "OTP verified successfully",
       token,
       user: {
-        id: newUser._id,
-        email: newUser.email,
-        username: newUser.username,
-        number: newUser.number,
+        id: user._id,
+        email: user.email,
+        username: user.username,
       },
     });
+
   } catch (error) {
-    console.error("Error in signup:", error);
-    res.status(500).json({ message: "Server error during registration" });
+    res.status(500).json({ message: "OTP verification error" });
   }
 };
 export const login = async (req, res) => {
@@ -85,7 +140,9 @@ export const login = async (req, res) => {
         message: "Invalid email or password",
       });
     }
-
+       if (!user || user.provider !== "local") {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
     //  3. Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {

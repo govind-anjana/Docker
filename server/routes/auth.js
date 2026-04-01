@@ -4,7 +4,9 @@ import {
   signupSchema,
   loginSchema,
 } from "../validators/authValidator.js";
-import { allUser, login, signup } from "../controllers/authController.js";
+import { allUser, login, signup, verifyOTP } from "../controllers/authController.js";
+import { googleLogin } from "../controllers/googleLogin.js";
+ 
 
 const router = express.Router();
 
@@ -12,9 +14,12 @@ const router = express.Router();
 // @desc    Register a new user
 router.post("/signup", validateBody(signupSchema), signup);
 
+router.post("/verify",verifyOTP)
 // @route   POST /api/auth/login
 // @desc    Authenticate user & get token
 router.post("/login", validateBody(loginSchema), login);
 router.get("/alluser", allUser);
+
+router.post("/google-login", googleLogin);
 
 export default router;
