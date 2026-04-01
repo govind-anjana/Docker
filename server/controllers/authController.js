@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
+
+// Email regex
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const signup = async (req, res) => {
   try {
     const { username, email, number, password } = req.body;
@@ -52,29 +55,71 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find the user by email
+    // 1. Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    //  2. Find user (include password)
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
     }
 
-    // Check password
+    //  3. Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "1d" });
+    //  4. Generate JWT
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
+    //  5. Remove password from response
+    const { password: pwd, ...userData } = user._doc;
+
+    //  6. Send response
     res.status(200).json({
+      success: true,
       message: "Login successful",
       token,
-      user: { user },
+      user: userData,
     });
+
   } catch (error) {
-    console.error("Error in login:", error);
-    res.status(500).json({ message: "Server error during login" });
+    console.error("Login Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error during login",
+    });
   }
 };
 export const allUser = async (req, res) => {
