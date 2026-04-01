@@ -19,12 +19,12 @@ export const sendOTPEmail = async (email, otp) => {
 
   try {
     console.log(`[EmailService] Attempting to send OTP to: ${email}`);
-    
+
     // Verify transporter configuration
     await transporter.verify();
-    
+
     const mailOptions = {
-      from: `<${process.env.EMAIL_USER}>`,
+      from: `"Maitri Auth" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Verify Your Account - OTP Code",
       html: `
@@ -50,17 +50,17 @@ export const sendOTPEmail = async (email, otp) => {
     const info = await transporter.sendMail(mailOptions);
     console.log(`[EmailService] Email sent successfully ✅ (ID: ${info.messageId})`);
     return info;
-    
+
   } catch (error) {
     console.error("[EmailService] Error occurred ❌:");
     console.error(`- Message: ${error.message}`);
-    
+
     if (error.code === 'EAUTH') {
-        console.error("- Recommendation: Authentication failed. Please check if your Google App Password is correct and without spaces.");
+      console.error("- Recommendation: Authentication failed. Please check if your Google App Password is correct and without spaces.");
     } else if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-        console.error("- Recommendation: Connection to SMTP server failed. Check your network/firewall settings (Port 465/587).");
+      console.error("- Recommendation: Connection to SMTP server failed. Check your network/firewall settings (Port 465/587).");
     }
-    
+
     throw new Error(`Email sending failed: ${error.message}`);
   }
 };
